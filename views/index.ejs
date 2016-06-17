@@ -1,0 +1,168 @@
+<html>
+  <head>
+  <style>
+  .col {
+    width:20%;
+    float:left;
+  }
+  </style>
+          <script src="http://code.jquery.com/jquery-3.0.0.min.js" integrity="sha256-JmvOoLtYsmqlsWxa7mDSLMwa6dZ9rrIdtrrVYRnDRH0=" crossorigin="anonymous"></script>
+    </script>
+    <script type="text/javascript">
+
+      // Your Client ID can be retrieved from your project in the Google
+      // Developer Console, https://console.developers.google.com
+      var CLIENT_ID = '60885701192-ljgb13idjlkan8o1r4pmhpj1t14jg6ka.apps.googleusercontent.com';
+
+      var SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly'];
+
+      /**
+       * Check if current user has authorized this application.
+       */
+      function checkAuth() {
+        gapi.auth.authorize(
+          {
+            'client_id': CLIENT_ID,
+            'scope': SCOPES.join(' '),
+            'immediate': true
+          }, handleAuthResult);
+      }
+
+      /**
+       * Handle response from authorization server.
+       *
+       * @param {Object} authResult Authorization result.
+       */
+      function handleAuthResult(authResult) {
+        var authorizeDiv = document.getElementById('authorize-div');
+        if (authResult && !authResult.error) {
+          // Hide auth UI, then load client library.
+          authorizeDiv.style.display = 'none';
+          loadDriveApi();
+        } else {
+          // Show auth UI, allowing the user to initiate authorization by
+          // clicking authorize button.
+          authorizeDiv.style.display = 'inline';
+        }
+      }
+
+      /**
+       * Initiate auth flow in response to user clicking authorize button.
+       *
+       * @param {Event} event Button click event.
+       */
+      function handleAuthClick(event) {
+        gapi.auth.authorize(
+          {client_id: CLIENT_ID, scope: SCOPES, immediate: false},
+          handleAuthResult);
+        return false;
+      }
+
+      /**
+       * Load Drive API client library.
+       */
+      function loadDriveApi() {
+        gapi.client.load('drive', 'v3', listFiles);
+      }
+
+      /**
+       * Print files.
+       */
+      function listFiles() {
+        var request = gapi.client.drive.files.list({
+            'pageSize': 10,
+            'fields': "nextPageToken, files(id, name)"
+          });
+
+          request.execute(function(resp) {
+            appendPre('Files:');
+            var files = resp.files;
+            if (files && files.length > 0) {
+              for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                appendPre(file.name + ' (' + file.id + ')');
+              }
+            } else {
+              appendPre('No files found.');
+            }
+          });
+      }
+
+      /**
+       * Append a pre element to the body containing the given message
+       * as its text node.
+       *
+       * @param {string} message Text to be placed in pre element.
+       */
+      function appendPre(message) {
+        var pre = document.getElementById('output');
+        var textContent = document.createTextNode(message + '\n');
+        pre.appendChild(textContent);
+      }
+        var makeHtml = function (str) {
+            var html = '<div class="title"><div class="col">Date</div><div class="col">Narration</div><div class="col">Credit</div><div class="col">Debit</div><div class="col">Closing</div></div>'
+            str.forEach(function(row){
+            console.log(row);
+                var element = row.split(',');
+                html += '<div class="title"><div class="col">' + element[0]+ '</div><div class="col">' + element[2]+ '</div><div class="col">' + element[3]+ '</div><div class="col">' + element[4]+ '</div><div class="col">' + element[5]+ '</div></div>';
+
+                
+            });
+            return html;
+        }
+      $(document).ready(function(){
+            $("#pdf").submit(function(e) {
+                var url = "/pdf",
+                    form = document.getElementById('pdf'),
+                    formData = new FormData(form);
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    contentType : false,
+                    processData : false,
+                    dataType: "json",
+                    data: formData, 
+                    success: function(data)
+                    {
+                       data = makeHtml(data)
+                       $('.result').html(data); 
+                    },
+                    error: function (XHR, status, error) {
+                        console.log(JSON.stringify(XHR))
+                    }
+                });
+                e.preventDefault(); // avoid to execute the actual submit of the form.
+                return false;   
+            });
+      });
+    </script>
+    <script src="https://apis.google.com/js/client.js?onload=checkAuth">
+    </script>
+  </head>
+  <body>
+    <div id="authorize-div" style="display: none">
+      <span>Authorize access to Drive API</span>
+      <!--Button for the user to click to initiate auth sequence -->
+      <button id="authorize-button" onclick="handleAuthClick(event)">
+        Authorize
+      </button>
+    </div>
+    <form id="pdf" method="post" action="/pdf" enctype="multipart/form-data">
+        IFSC : <input type="text" name="ifsc"><br />
+        FIELD :<select name="field">
+          <option value="date">Date</option>
+          <option value="narration">Narration</option>
+          <option value="debit">Debit</option>
+          <option value="credit">Credit</option>
+        </select><br />
+        <input type="file" name="text"><br />
+        TERM : <input type="text" name="term"><br />
+        LIMIT : <input type="text" name="limit"><br />
+        <button>Submit</button>
+      </form>
+      <div class="result">
+      
+      </div>
+    <pre id="output"></pre>
+  </body>
+</html>
