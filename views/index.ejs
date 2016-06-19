@@ -4,6 +4,12 @@
   .col {
     width:20%;
     float:left;
+  };
+  .result {
+    overflow:hidden;
+  }
+  #bank_details {
+    display:none;
   }
   </style>
           <script src="http://code.jquery.com/jquery-3.0.0.min.js" integrity="sha256-JmvOoLtYsmqlsWxa7mDSLMwa6dZ9rrIdtrrVYRnDRH0=" crossorigin="anonymous"></script>
@@ -125,7 +131,7 @@
                     success: function(data)
                     {
                        data = makeHtml(data)
-                       $('.result').html(data); 
+                       $('.result').empty().html(data); 
                     },
                     error: function (XHR, status, error) {
                         console.log(JSON.stringify(XHR))
@@ -134,6 +140,16 @@
                 e.preventDefault(); // avoid to execute the actual submit of the form.
                 return false;   
             });
+            $('#inifsc').on('blur', function(e){
+                if  ($(this).val().length === 11) {
+                    $.get('/banks?ifsc='+$(this).val(), function(data) {
+                        if (data) {
+                            $('#bank_details').html(data);
+                             $('#bank_details').show()
+                        }
+                    }, "json")
+                }
+            })
       });
     </script>
     <script src="https://apis.google.com/js/client.js?onload=checkAuth">
@@ -148,7 +164,8 @@
       </button>
     </div>
     <form id="pdf" method="post" action="/pdf" enctype="multipart/form-data">
-        IFSC : <input type="text" name="ifsc"><br />
+        IFSC : <input id="inifsc" type="text" name="ifsc"><br />
+        <div id="bank_details"></div>
         FIELD :<select name="field">
           <option value="date">Date</option>
           <option value="narration">Narration</option>

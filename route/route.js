@@ -8,6 +8,7 @@ var route  = function () {
         getBanks,
         refined_str = "";
     processPDF = function (filePath, fileName, callback) {
+        refined_str = "";
         extract(filePath, function (err, pages) {
           if (err) {
             console.error(err);
@@ -48,7 +49,7 @@ var route  = function () {
         })
     };
     uploadFile = function (req, res) {
-        var fstream, filePath, ifsc, field, term, limit, ret_array = [], refineField;
+        var fstream, filePath, ifsc, field, term, limit,  refineField;
         // util.inspect adds extra quotes on string, this function is 'Normalize' those strings
         refineField = function (val) {
             val = val.substr(1);
@@ -77,72 +78,87 @@ var route  = function () {
         //Read the posted file
         req.busboy.on('file', function (fieldname, file, filename) {
             console.log("Uploading: " + filename); 
-            filePath = __dirname + '/../res/' + filename;
-            fstream = fs.createWriteStream(filePath);
-            file.pipe(fstream);
-            // On read completion, convert pdf to strings
-            fstream.on('close', function () {
-                 processPDF(filePath, ifsc, function(err, data) {
-                 var index = 0, i, values;
-                    if (!err) {
-                        // map index of the filed
-                        switch(field) {
-                                case 'date':
-                                    index = 0;
-                                    break;
-                                case 'narration':
-                                    index = 2;
-                                    break;
-                                case 'debit':
-                                    index = 3;
-                                    break;
-                                case 'credit':
-                                    index = 4;
-                                    break;
-                            }
-                        data = data.split('\n');
-                        for (i = 0 ; i < data.length; i += 1) {
-                            values = data[i].split(',');
-                            //Check if term matches the value at the index
-                            if (values[index] === term) {
-                                ret_array.push(data[i]);
-                                //Break if limit reached
-                                if (ret_array.length == limit) {
-                                    break;
+            if (filename) {
+                filePath = __dirname + '/../res/' + filename;
+                fstream = fs.createWriteStream(filePath);
+                file.pipe(fstream);
+                // On read completion, convert pdf to strings
+                fstream.on('close', function () {
+                     processPDF(filePath, ifsc, function(err, data) {
+                     var index = 0, i, values, ret_array = [];
+                        if (!err) {
+                            // map index of the filed
+                            switch(field) {
+                                    case 'date':
+                                        index = 0;
+                                        break;
+                                    case 'narration':
+                                        index = 2;
+                                        break;
+                                    case 'debit':
+                                        index = 3;
+                                        break;
+                                    case 'credit':
+                                        index = 4;
+                                        break;
+                                }
+                            data = data.split('\n');
+                            for (i = 0 ; i < data.length; i += 1) {
+                                values = data[i].split(',');
+                                //Check if term matches the value at the index
+                                if (values[index] === term) {
+                                    ret_array.push(data[i]);
+                                    //Break if limit reached
+                                    if (ret_array.length == limit) {
+                                        break;
+                                    }
                                 }
                             }
+                            res.status(200).send(JSON.stringify(ret_array));
+                        } else {
+                            res.status(500).send(JSON.stringify(err));
                         }
-                        res.status(200).send(JSON.stringify(ret_array));
-                    } else {
-                        res.status(500).send(JSON.stringify(err));
-                    }
+                    });
                 });
-            });
+            } else {
+                 res.status(400).send({"error": "invalid file"});
+            }
         });
         req.busboy.on('finish', function() {
             console.log("Finished parsing");
         });
     };
     getBanks = function (req, res) {
-        var ifscData = {
-            "HDFC0003824": {"bank": "HDFC Bank JP Nagar"},
-            "UTIB0002366": {"bank": "Axis Bank Arekere "},
-            "HSBC0560002": {"bank": "HSBC Bank Bangalore "},
-            "ICIC0000001": {"bank": "ICICI Bank Chennai"},
-            },
+        var ifscData = undefined,
             ifsc = req.query.ifsc,
-            index;
-            
-        if (ifsc && ifsc.length === 11) {
-            index = Object.keys(ifscData).indexOf(ifsc);
-            if (index > -1) {
-                res.status(200).send(JSON.stringify(ifscData[ifsc]))
-            } else {
-                res.status(400).send({"error": "Bank not found"})
+            index,
+            loadIfsc;
+            loadIfsc = function (callback) {
+                if (!ifscData) {
+                    fs.readFile(__dirname + '/../res/ifsc.txt', 'utf8', function (err,data) {
+                      if (err) {
+                        return console.log(err);
+                      }
+                      ifscData = JSON.parse(data);
+                      callback();
+                    });
+                } else {
+                    callback();
+                }
             }
-        } else {
-            res.status(401).send({"error": "Invalid IFSC code"})
-        }
+            loadIfsc(function () {
+                if (ifsc && ifsc.length === 11) {
+            index = Object.keys(ifscData).indexOf(ifsc);
+                    if (index > -1) {
+                        res.status(200).send(JSON.stringify(ifscData[ifsc]))
+                    } else {
+                        res.status(400).send({"error": "Bank not found"})
+                    }
+                } else {
+                    res.status(401).send({"error": "Invalid IFSC code"})
+                }
+            })
+        
     }
     return {
         uploadFile: uploadFile,
